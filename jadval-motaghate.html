@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>جدول متقاطع</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: Tahoma, "Segoe UI", system-ui, sans-serif;
+    direction: rtl;
+    background: radial-gradient(circle at 20% 10%, #1e4a5c 0%, #123243 45%, #0b2431 100%);
+    color: #F4ECD8;
+    min-height: 100vh;
+  }
+  #app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 12px 40px;
+    position: relative;
+  }
+  .tile-pattern {
+    position: fixed; inset: 0; pointer-events: none; opacity: 0.10; z-index: 0;
+    background-image:
+      linear-gradient(30deg, #E8A33D 12%, transparent 12.5%, transparent 87%, #E8A33D 87.5%, #E8A33D),
+      linear-gradient(150deg, #E8A33D 12%, transparent 12.5%, transparent 87%, #E8A33D 87.5%, #E8A33D),
+      linear-gradient(30deg, #E8A33D 12%, transparent 12.5%, transparent 87%, #E8A33D 87.5%, #E8A33D),
+      linear-gradient(150deg, #E8A33D 12%, transparent 12.5%, transparent 87%, #E8A33D 87.5%, #E8A33D);
+    background-size: 52px 90px;
+    background-position: 0 0, 0 0, 26px 45px, 26px 45px;
+  }
+  .app-title { font-weight: 900; font-size: 2.2rem; margin: 18px 0 4px; color: #F2C879; text-shadow: 0 2px 14px rgba(242,200,121,0.35); z-index: 1; }
+  .app-subtitle { color: #9FC7D1; font-size: 0.9rem; margin-bottom: 20px; text-align: center; max-width: 380px; line-height: 1.9; z-index: 1; }
+  .level-preview { display: flex; gap: 8px; margin-bottom: 26px; z-index: 1; flex-wrap: wrap; justify-content: center; }
+  .level-chip { border: 1px solid #2EC4B6; color: #9FE0D6; font-size: 0.78rem; padding: 5px 10px; border-radius: 999px; }
+  .start-btn { background: linear-gradient(120deg, #E8A33D, #C97A22); color: #2A1500; border: none; font-weight: 800; font-size: 1.05rem; padding: 13px 40px; border-radius: 999px; cursor: pointer; z-index: 1; box-shadow: 0 8px 22px rgba(232,163,61,0.3); }
+  .top-bar { width: 100%; max-width: 460px; display: flex; justify-content: space-between; align-items: center; z-index: 1; margin-bottom: 8px; }
+  .ghost-btn { background: transparent; border: 1px solid #2EC4B6; color: #C9E8E4; font-size: 0.85rem; padding: 7px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; }
+  .score-pill { background: linear-gradient(120deg, #E8A33D, #C97A22); color: #2A1500; font-weight: 800; padding: 7px 16px; border-radius: 999px; font-size: 0.85rem; }
+  .level-banner { z-index: 1; font-size: 1rem; font-weight: 700; color: #9FE0D6; margin: 6px 0 16px; }
+  .grid-wrap { z-index: 1; display: grid; gap: 3px; margin-bottom: 18px; background: rgba(0,0,0,0.25); padding: 6px; border-radius: 10px; border: 1.5px solid rgba(46,196,182,0.33); }
+  .cw-cell { background: #0f3444; border: none; color: #F4ECD8; font-size: 1.1rem; font-weight: 800; position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-family: inherit; }
+  .cw-cell.blocked { background: transparent; cursor: default; }
+  .cw-cell.in-word { background: rgba(46,196,182,0.22); }
+  .cw-cell.selected { background: #E8A33D; color: #1a1200; }
+  .cw-cell.solved { background: rgba(111,207,151,0.35); }
+  .cw-cell.selected.solved { background: #E8A33D; }
+  .cell-num { position: absolute; top: 1px; right: 3px; font-size: 0.55rem; font-weight: 500; color: #E8A33D; }
+  .cw-cell.selected .cell-num { color: #5a3c00; }
+  .feedback { z-index: 1; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: #8EE6B8; flex-wrap: wrap; justify-content: center; }
+  .next-btn { border: none; border-radius: 999px; padding: 7px 16px; font-size: 0.82rem; font-weight: 700; cursor: pointer; background: #2EC4B6; color: #0b2431; font-family: inherit; }
+  .clues-panel { z-index: 1; width: 100%; max-width: 460px; display: flex; gap: 12px; margin-bottom: 18px; }
+  .clue-col { flex: 1; background: rgba(244,236,216,0.05); border: 1px solid rgba(46,196,182,0.3); border-radius: 12px; padding: 10px 12px; max-height: 200px; overflow-y: auto; min-width: 0; }
+  .clue-col h3 { margin: 0 0 8px; font-size: 0.85rem; color: #E8A33D; }
+  .clue-item { font-size: 0.78rem; line-height: 1.6; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; color: #C9E8E4; }
+  .clue-item:last-child { border-bottom: none; }
+  .clue-num { color: #E8A33D; font-weight: 700; }
+  .active-clue { color: #F2C879; font-weight: 700; }
+  .done-clue { color: #6E9AA3; text-decoration: line-through; }
+  .keypad { z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 460px; margin-bottom: 14px; }
+  .key-btn { min-width: 34px; height: 34px; border-radius: 8px; border: 1px solid rgba(46,196,182,0.53); background: #123243; color: #F4ECD8; font-size: 0.95rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .key-btn:active { background: #2EC4B6; color: #0b2431; }
+  .key-btn.wide { min-width: 90px; font-size: 0.78rem; background: rgba(228,87,46,0.18); border-color: #E4572E; }
+  .hint-btn { z-index: 1; background: rgba(232,163,61,0.15); border: 1px solid #E8A33D; color: #F2C879; font-size: 0.85rem; font-weight: 600; padding: 9px 18px; border-radius: 999px; cursor: pointer; font-family: inherit; }
+</style>
+</head>
+<body>
+<div class="tile-pattern"></div>
+<div id="app"></div>
+
+<script>
+"use strict";
+
+/* ---------------------------------------------------
+   جدول متقاطع — بازی حدس کلمه با سختی فزاینده
+   نسخه‌ی مستقل (بدون نیاز به اینترنت پس از باز شدن)
+--------------------------------------------------- */
+
+var WORD_BANK = [
+  { word: "شیر", clue: "شاه جنگل، یا نوشیدنی سفید گاو" },
+  { word: "مار", clue: "خزنده‌ای بدون دست و پا" },
+  { word: "گاو", clue: "حیوان شیرده‌ی اهلی" },
+  { word: "ماه", clue: "قرص روشن آسمان شب" },
+  { word: "نان", clue: "غذای اصلی هر سفره" },
+  { word: "مرغ", clue: "پرنده‌ی تخم‌گذار خانگی" },
+  { word: "سیب", clue: "میوه‌ای که نماد کشف جاذبه است" },
+  { word: "برف", clue: "بارش سفید زمستان" },
+  { word: "اسب", clue: "حیوان یال‌دار برای سواری" },
+  { word: "کوه", clue: "بلندی طبیعی زمین" },
+  { word: "فیل", clue: "بزرگ‌ترین حیوان خشکی" },
+  { word: "عسل", clue: "شیرینی طبیعی زنبور" },
+  { word: "نمک", clue: "ماده‌ی طعم‌دهنده‌ی غذا" },
+  { word: "آتش", clue: "شعله‌ی گرم و روشن" },
+  { word: "ابر", clue: "توده‌ی سفید آسمان" },
+  { word: "باد", clue: "جریان هوا" },
+  { word: "برگ", clue: "قسمت سبز درخت" },
+  { word: "چتر", clue: "وسیله‌ی محافظت از باران" },
+  { word: "قلم", clue: "وسیله‌ی نوشتن با جوهر" },
+  { word: "رنگ", clue: "ماده‌ی نقاشی" },
+  { word: "رقص", clue: "حرکات موزون بدن" },
+  { word: "عقاب", clue: "پرنده‌ی شکاری تیزپرواز" },
+  { word: "پلنگ", clue: "گربه‌سان خال‌دار کوهستان" },
+  { word: "دریا", clue: "پهنه‌ی آبی بزرگ" },
+  { word: "کتاب", clue: "برگه‌های چاپی برای خواندن" },
+  { word: "مداد", clue: "وسیله‌ی نوشتن با گرافیت" },
+  { word: "خانه", clue: "محل زندگی خانواده" },
+  { word: "گربه", clue: "حیوان خانگی که میومیو می‌کند" },
+  { word: "آینه", clue: "وسیله‌ی دیدن تصویر خود" },
+  { word: "ماهی", clue: "جانور آبزی با باله" },
+  { word: "تلفن", clue: "وسیله‌ی مکالمه از راه دور" },
+  { word: "دندان", clue: "عضو سفید داخل دهان" },
+  { word: "دیوار", clue: "سازه‌ی عمودی اتاق" },
+  { word: "پنجره", clue: "روزنه‌ی نور اتاق" },
+  { word: "باغچه", clue: "محل کاشت گل و گیاه" },
+  { word: "مورچه", clue: "حشره‌ی کوچک پرکار" },
+  { word: "زنبور", clue: "حشره‌ی تولیدکننده‌ی عسل" },
+  { word: "مدرسه", clue: "محل آموزش دانش‌آموزان" },
+  { word: "شکلات", clue: "خوراکی شیرین قهوه‌ای" },
+  { word: "قطار", clue: "وسیله‌ی نقلیه‌ی ریلی" },
+  { word: "کشتی", clue: "وسیله‌ی حمل‌ونقل دریایی، یا ورزش ملی ایران" },
+  { word: "عینک", clue: "وسیله‌ی کمک به دید چشم" },
+  { word: "ساعت", clue: "وسیله‌ی نمایش زمان" },
+  { word: "کلید", clue: "وسیله‌ی باز کردن قفل" },
+  { word: "کاغذ", clue: "صفحه‌ی نازک برای نوشتن" },
+  { word: "دفتر", clue: "مجموعه‌ی برگه برای یادداشت" },
+  { word: "جنگل", clue: "خانه‌ی درختان انبوه" },
+  { word: "کویر", clue: "زمین خشک و بی‌آب" },
+  { word: "روباه", clue: "حیوان زیرک و حیله‌گر" },
+  { word: "کبوتر", clue: "پرنده‌ی نماد صلح" },
+  { word: "زرافه", clue: "بلندگردن‌ترین حیوان" },
+  { word: "باران", clue: "قطرات آب از آسمان" },
+  { word: "ستاره", clue: "نقطه‌ی نورانی آسمان شب" },
+  { word: "پرنده", clue: "جانور بال‌دار" },
+  { word: "گلابی", clue: "میوه‌ای شبیه لامپ" },
+  { word: "خرگوش", clue: "گوش‌دراز داستان مسابقه با لاک‌پشت" },
+  { word: "جزیره", clue: "خشکی محاصره‌شده با آب" },
+  { word: "دریاچه", clue: "پهنه‌ی آب محصور در خشکی" },
+  { word: "دوچرخه", clue: "وسیله‌ی دوچرخ برای رفت‌وآمد" },
+  { word: "هندوانه", clue: "میوه‌ی بزرگ و آبدار تابستان" },
+  { word: "پرتقال", clue: "میوه‌ی نارنجی و پرآب" },
+  { word: "رودخانه", clue: "مسیر جریان آب به سمت دریا" },
+  { word: "هواپیما", clue: "وسیله‌ی پرنده‌ی مسافربری" },
+  { word: "موسیقی", clue: "هنر صداهای هماهنگ" },
+  { word: "بازیگر", clue: "کسی که نقش‌آفرینی می‌کند" },
+  { word: "تئاتر", clue: "هنر نمایش روی صحنه" },
+  { word: "سینما", clue: "محل نمایش فیلم" },
+  { word: "کامپیوتر", clue: "دستگاه پردازش داده" }
+];
+
+var LEVELS = [
+  { size: 4, count: 4 },
+  { size: 5, count: 5 },
+  { size: 6, count: 6 },
+  { size: 7, count: 7 },
+  { size: 8, count: 8 },
+  { size: 9, count: 9 }
+];
+
+var KEYPAD_LETTERS = "ابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی".split("");
+
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+/* ---------- crossword generator ---------- */
+function tryGenerate(size, targetCount, bank) {
+  var pool = bank.filter(function (w) { return w.word.length >= 3 && w.word.length <= size; });
+  if (pool.length < 3) return null;
+
+  for (var attempt = 0; attempt < 60; attempt++) {
+    var candidates = shuffle(pool);
+    var sortedByLen = candidates.slice().sort(function (a, b) { return b.word.length - a.word.length; });
+    var first = null;
+    for (var f = 0; f < sortedByLen.length; f++) { if (sortedByLen[f].word.length <= size) { first = sortedByLen[f]; break; } }
+    if (!first) continue;
+
+    var grid = {};
+    var placed = [];
+
+    function place(wordObj, row, col, dir) {
+      for (var k = 0; k < wordObj.word.length; k++) {
+        var r = dir === "across" ? row : row + k;
+        var c = dir === "across" ? col + k : col;
+        grid[r + "," + c] = wordObj.word[k];
+      }
+      var copy = { word: wordObj.word, clue: wordObj.clue, row: row, col: col, dir: dir };
+      placed.push(copy);
+    }
+
+    function canPlace(word, row, col, dir) {
+      for (var k = 0; k < word.length; k++) {
+        var r = dir === "across" ? row : row + k;
+        var c = dir === "across" ? col + k : col;
+        if (r < 0 || c < 0 || r >= size || c >= size) return false;
+        var key = r + "," + c;
+        if (grid[key] !== undefined && grid[key] !== word[k]) return false;
+      }
+      if (dir === "across") {
+        if (col - 1 >= 0 && grid[row + "," + (col - 1)] !== undefined) return false;
+        if (col + word.length < size && grid[row + "," + (col + word.length)] !== undefined) return false;
+      } else {
+        if (row - 1 >= 0 && grid[(row - 1) + "," + col] !== undefined) return false;
+        if (row + word.length < size && grid[(row + word.length) + "," + col] !== undefined) return false;
+      }
+      return true;
+    }
+
+    var startRow = Math.floor((size - 1) / 2);
+    var startCol = Math.floor((size - first.word.length) / 2);
+    place(first, startRow, startCol, "across");
+
+    for (var ci = 0; ci < candidates.length; ci++) {
+      if (placed.length >= targetCount) break;
+      var cand = candidates[ci];
+      var already = false;
+      for (var pi = 0; pi < placed.length; pi++) { if (placed[pi].word === cand.word) { already = true; break; } }
+      if (already) continue;
+
+      var done = false;
+      var placedShuffled = shuffle(placed);
+      for (var psi = 0; psi < placedShuffled.length && !done; psi++) {
+        var p = placedShuffled[psi];
+        for (var i = 0; i < p.word.length && !done; i++) {
+          for (var j = 0; j < cand.word.length && !done; j++) {
+            if (p.word[i] !== cand.word[j]) continue;
+            var newDir = p.dir === "across" ? "down" : "across";
+            var newRow, newCol;
+            if (newDir === "down") { newRow = p.row - j; newCol = p.col + i; }
+            else { newRow = p.row + i; newCol = p.col - j; }
+            if (canPlace(cand.word, newRow, newCol, newDir)) {
+              place(cand, newRow, newCol, newDir);
+              done = true;
+            }
+          }
+        }
+      }
+    }
+
+    if (placed.length >= Math.max(3, targetCount - 1)) {
+      return finalize(placed, size);
+    }
+  }
+  return null;
+}
+
+function finalize(placed, size) {
+  var cells = [];
+  for (var r = 0; r < size; r++) { cells.push(new Array(size).fill(null)); }
+  placed.forEach(function (w) {
+    for (var k = 0; k < w.word.length; k++) {
+      var r = w.dir === "across" ? w.row : w.row + k;
+      var c = w.dir === "across" ? w.col + k : w.col;
+      cells[r][c] = w.word[k];
+    }
+  });
+
+  var starts = [];
+  placed.forEach(function (w) {
+    var exists = starts.some(function (s) { return s.r === w.row && s.c === w.col; });
+    if (!exists) starts.push({ r: w.row, c: w.col });
+  });
+  starts.sort(function (a, b) { return (a.r - b.r) || (a.c - b.c); });
+  var numberOf = {};
+  starts.forEach(function (s, i) { numberOf[s.r + "," + s.c] = i + 1; });
+
+  var words = placed.map(function (w, idx) {
+    return {
+      id: idx,
+      number: numberOf[w.row + "," + w.col],
+      dir: w.dir,
+      row: w.row,
+      col: w.col,
+      word: w.word,
+      clue: w.clue,
+      length: w.word.length
+    };
+  });
+
+  return { size: size, cells: cells, words: words };
+}
+
+function generateLevel(levelIdx) {
+  var lvl = LEVELS[Math.min(levelIdx, LEVELS.length - 1)];
+  for (var c = lvl.count; c >= 3; c--) {
+    var res = tryGenerate(lvl.size, c, WORD_BANK);
+    if (res) return res;
+  }
+  return tryGenerate(lvl.size, 3, WORD_BANK);
+}
+
+/* ---------- game state ---------- */
+var state = {
+  started: false,
+  levelIdx: 0,
+  puzzle: null,
+  userGrid: null,
+  selected: null,
+  dir: "across",
+  score: 0,
+  hintsUsed: 0,
+  complete: false
+};
+
+function cellInWord(w, r, c) {
+  if (w.dir === "across") return r === w.row && c >= w.col && c < w.col + w.length;
+  return c === w.col && r >= w.row && r < w.row + w.length;
+}
+
+function wordsAtCell(r, c) {
+  if (!state.puzzle) return [];
+  return state.puzzle.words.filter(function (w) { return cellInWord(w, r, c); });
+}
+
+function getCurrentWord() {
+  if (!state.puzzle || !state.selected) return null;
+  var ws = wordsAtCell(state.selected.r, state.selected.c);
+  var match = ws.filter(function (w) { return w.dir === state.dir; })[0];
+  return match || ws[0] || null;
+}
+
+function checkComplete(grid) {
+  var p = state.puzzle;
+  for (var r = 0; r < p.size; r++) {
+    for (var c = 0; c < p.size; c++) {
+      if (p.cells[r][c] && grid[r][c] !== p.cells[r][c]) return false;
+    }
+  }
+  return true;
+}
+
+function isWordSolved(w) {
+  for (var k = 0; k < w.length; k++) {
+    var r = w.dir === "across" ? w.row : w.row + k;
+    var c = w.dir === "across" ? w.col + k : w.col;
+    if (state.userGrid[r][c] !== state.puzzle.cells[r][c]) return false;
+  }
+  return true;
+}
+
+function loadLevel(idx) {
+  var p = generateLevel(idx);
+  state.puzzle = p;
+  state.userGrid = [];
+  for (var r = 0; r < p.size; r++) state.userGrid.push(new Array(p.size).fill(""));
+  state.complete = false;
+  state.hintsUsed = 0;
+  var firstAcross = p.words.filter(function (w) { return w.dir === "across"; })[0] || p.words[0];
+  state.selected = { r: firstAcross.row, c: firstAcross.col };
+  state.dir = firstAcross.dir;
+}
+
+function startGame() {
+  state.levelIdx = 0;
+  state.score = 0;
+  state.started = true;
+  loadLevel(0);
+  render();
+}
+
+function selectCell(r, c) {
+  if (!state.puzzle.cells[r][c]) return;
+  var ws = wordsAtCell(r, c);
+  if (state.selected && state.selected.r === r && state.selected.c === c && ws.length > 1) {
+    state.dir = state.dir === "across" ? "down" : "across";
+  } else {
+    state.selected = { r: r, c: c };
+    var preferred = ws.filter(function (w) { return w.dir === state.dir; })[0] || ws[0];
+    if (preferred) state.dir = preferred.dir;
+  }
+  render();
+}
+
+function selectWord(w) {
+  state.selected = { r: w.row, c: w.col };
+  state.dir = w.dir;
+  render();
+}
+
+function typeLetter(ch) {
+  if (!state.selected || !state.puzzle || state.complete) return;
+  var r = state.selected.r, c = state.selected.c;
+  if (!state.puzzle.cells[r][c]) return;
+  state.userGrid[r][c] = ch;
+
+  var w = getCurrentWord();
+  if (w) {
+    var idx = w.dir === "across" ? c - w.col : r - w.row;
+    if (idx + 1 < w.length) {
+      var nr = w.dir === "across" ? r : r + 1;
+      var nc = w.dir === "across" ? c + 1 : c;
+      state.selected = { r: nr, c: nc };
+    }
+  }
+  if (checkComplete(state.userGrid)) {
+    state.complete = true;
+    state.score += state.puzzle.words.length * 10 - state.hintsUsed * 3;
+  }
+  render();
+}
+
+function backspace() {
+  if (!state.selected || !state.puzzle || state.complete) return;
+  var r = state.selected.r, c = state.selected.c;
+  if (state.userGrid[r][c]) {
+    state.userGrid[r][c] = "";
+  } else {
+    var w = getCurrentWord();
+    if (w) {
+      var idx = w.dir === "across" ? c - w.col : r - w.row;
+      if (idx > 0) {
+        var pr = w.dir === "across" ? r : r - 1;
+        var pc = w.dir === "across" ? c - 1 : c;
+        state.userGrid[pr][pc] = "";
+        state.selected = { r: pr, c: pc };
+      }
+    }
+  }
+  render();
+}
+
+function giveHint() {
+  if (!state.selected || !state.puzzle || state.complete) return;
+  var r = state.selected.r, c = state.selected.c;
+  if (!state.puzzle.cells[r][c]) return;
+  state.userGrid[r][c] = state.puzzle.cells[r][c];
+  state.hintsUsed += 1;
+  if (checkComplete(state.userGrid)) {
+    state.complete = true;
+    state.score += state.puzzle.words.length * 10 - state.hintsUsed * 3;
+  }
+  render();
+}
+
+function nextLevel() {
+  var ni = state.levelIdx + 1;
+  if (ni < LEVELS.length) { state.levelIdx = ni; loadLevel(ni); }
+  else { state.levelIdx = 0; loadLevel(0); }
+  render();
+}
+
+function exitGame() {
+  state.started = false;
+  render();
+}
+
+/* ---------- rendering (vanilla DOM) ---------- */
+function el(tag, attrs, children) {
+  var e = document.createElement(tag);
+  attrs = attrs || {};
+  Object.keys(attrs).forEach(function (k) {
+    if (k === "class") e.className = attrs[k];
+    else if (k === "text") e.textContent = attrs[k];
+    else if (k.indexOf("on") === 0) e.addEventListener(k.slice(2), attrs[k]);
+    else if (k === "style") Object.assign(e.style, attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  });
+  (children || []).forEach(function (ch) { if (ch) e.appendChild(ch); });
+  return e;
+}
+
+function render() {
+  var root = document.getElementById("app");
+  root.innerHTML = "";
+
+  if (!state.started) {
+    root.appendChild(el("h1", { class: "app-title", text: "جدول متقاطع" }));
+    root.appendChild(el("p", {
+      class: "app-subtitle",
+      text: "کلمات افقی و عمودی هم را کمک می‌کنند. از جدول ۴×۴ شروع کن و هر مرحله یک پله سخت‌تر شو."
+    }));
+    var preview = el("div", { class: "level-preview" });
+    LEVELS.forEach(function (l) {
+      preview.appendChild(el("div", { class: "level-chip", text: l.size + "×" + l.size }));
+    });
+    root.appendChild(preview);
+    root.appendChild(el("button", { class: "start-btn", text: "شروع بازی", onclick: startGame }));
+    return;
+  }
+
+  if (!state.puzzle) {
+    root.appendChild(el("div", { text: "در حال ساخت جدول..." }));
+    return;
+  }
+
+  var p = state.puzzle;
+
+  // top bar
+  var topBar = el("div", { class: "top-bar" }, [
+    el("button", { class: "ghost-btn", text: "‹ خروج", onclick: exitGame }),
+    el("div", { class: "score-pill", text: "✦ امتیاز: " + state.score })
+  ]);
+  root.appendChild(topBar);
+
+  root.appendChild(el("div", {
+    class: "level-banner",
+    text: "مرحله " + (state.levelIdx + 1) + " — جدول " + p.size + "×" + p.size
+  }));
+
+  // grid
+  var cellPx = Math.max(30, Math.min(56, Math.floor(336 / p.size)));
+  var gridWrap = el("div", {
+    class: "grid-wrap",
+    style: { gridTemplateColumns: "repeat(" + p.size + ", " + cellPx + "px)" }
+  });
+  var currentWord = getCurrentWord();
+
+  for (var r = 0; r < p.size; r++) {
+    for (var c = 0; c < p.size; c++) {
+      var letter = p.cells[r][c];
+      var active = !!letter;
+      var classes = ["cw-cell"];
+      if (!active) classes.push("blocked");
+      var isSel = state.selected && state.selected.r === r && state.selected.c === c;
+      var inCurrentWord = currentWord && cellInWord(currentWord, r, c);
+      if (isSel) classes.push("selected");
+      else if (inCurrentWord) classes.push("in-word");
+      var filled = active && state.userGrid[r][c];
+      var isCorrect = active && filled && state.userGrid[r][c] === letter;
+      if ((state.complete && active) || isCorrect) classes.push("solved");
+
+      var btn = el("button", {
+        class: classes.join(" "),
+        style: { width: cellPx + "px", height: cellPx + "px" }
+      });
+      if (active) {
+        btn.addEventListener("click", (function (rr, cc) {
+          return function () { selectCell(rr, cc); };
+        })(r, c));
+      } else {
+        btn.disabled = true;
+      }
+
+      var numHolder = p.words.filter(function (w) { return w.row === r && w.col === c && w.number; })[0];
+      if (numHolder) {
+        btn.appendChild(el("span", { class: "cell-num", text: String(numHolder.number) }));
+      }
+      if (active) {
+        btn.appendChild(document.createTextNode(state.userGrid[r][c] || ""));
+      }
+      gridWrap.appendChild(btn);
+    }
+  }
+  root.appendChild(gridWrap);
+
+  // feedback
+  if (state.complete) {
+    var fb = el("div", { class: "feedback" }, [
+      document.createTextNode("عالی بود، جدول کامل شد! ✓"),
+      el("button", {
+        class: "next-btn",
+        text: (state.levelIdx + 1 < LEVELS.length) ? "مرحله بعد ←" : "دوباره از اول",
+        onclick: nextLevel
+      })
+    ]);
+    root.appendChild(fb);
+  }
+
+  // clues panel
+  var cluesPanel = el("div", { class: "clues-panel" });
+  var acrossCol = el("div", { class: "clue-col" }, [el("h3", { text: "افقی" })]);
+  var downCol = el("div", { class: "clue-col" }, [el("h3", { text: "عمودی" })]);
+
+  p.words.filter(function (w) { return w.dir === "across"; }).forEach(function (w) {
+    var cls = "clue-item";
+    if (currentWord && currentWord.id === w.id) cls += " active-clue";
+    if (isWordSolved(w)) cls += " done-clue";
+    var item = el("div", { class: cls }, [
+      el("span", { class: "clue-num", text: w.number + ". " }),
+      document.createTextNode(w.clue)
+    ]);
+    item.addEventListener("click", function (word) { return function () { selectWord(word); }; }(w));
+    acrossCol.appendChild(item);
+  });
+
+  p.words.filter(function (w) { return w.dir === "down"; }).forEach(function (w) {
+    var cls2 = "clue-item";
+    if (currentWord && currentWord.id === w.id) cls2 += " active-clue";
+    if (isWordSolved(w)) cls2 += " done-clue";
+    var item2 = el("div", { class: cls2 }, [
+      el("span", { class: "clue-num", text: w.number + ". " }),
+      document.createTextNode(w.clue)
+    ]);
+    item2.addEventListener("click", function (word) { return function () { selectWord(word); }; }(w));
+    downCol.appendChild(item2);
+  });
+
+  cluesPanel.appendChild(acrossCol);
+  cluesPanel.appendChild(downCol);
+  root.appendChild(cluesPanel);
+
+  // keypad
+  var keypad = el("div", { class: "keypad" });
+  KEYPAD_LETTERS.forEach(function (l) {
+    keypad.appendChild(el("button", {
+      class: "key-btn", text: l, onclick: function () { typeLetter(l); }
+    }));
+  });
+  keypad.appendChild(el("button", { class: "key-btn wide", text: "⌫ پاک کن", onclick: backspace }));
+  root.appendChild(keypad);
+
+  root.appendChild(el("button", { class: "hint-btn", text: "راهنمای حرف 💡", onclick: giveHint }));
+}
+
+render();
+</script>
+</body>
+</html>
